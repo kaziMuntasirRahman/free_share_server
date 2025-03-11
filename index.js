@@ -25,7 +25,8 @@ const client = new MongoClient(uri, {
   }
 })
 
-const DB=client.db('FREE_SHARE_DB')
+const DB = client.db('FREE_SHARE_DB')
+const contentCollection = DB.collection('content')
 
 async function run () {
   try {
@@ -33,9 +34,54 @@ async function run () {
     // await client.db('admin').command({ ping: 1 })
     console.log('Pinged your deployment. Successfully connected to MongoDB!')
 
+    //post a new content
+    app.post('/contents', async (req, res) => {
+      console.log('Post /contents api is hit...')
+      const { title, description, imgURL, uploader, isPublic, isAnonymous } =
+        req.body
+      const uploadTime = new Date().toISOString()
+      const isAdminApproved = false
+      const likedCount = 0
+      const newContent = {
+        title,
+        description,
+        image: imgURL,
+        uploader,
+        isPublic,
+        isAnonymous,
+        uploadTime,
+        isAdminApproved,
+        likedCount
+      }
+      const result = await contentCollection.insertOne(newContent)
+      res.send(result)
+    })
+
+    // get all public contents
+    app.get('/contents', async (_, res) => {
+      console.log('Get /contents api is hit...')
+      res.send(await contentCollection.find({ isPublic: true }).toArray())
+    })
+
+    //add a new field
+    app.patch('/contents/add-field/:field_name', async (req, res)=>{
+      console.log('Patch /contents/add-field/:field_name api is hit...')
+      const {field_name} = req.params;
+      const result = await contentCollection.updateMany({},{$set: {[field_name]: []}})
+      res.send(result)
+    }) 
+
+    //remove a field
+    app.patch('/contents/remove-field/:field_name', async (req, res) => {
+      console.log('Patch contents/remove-field/:field_name api is hit...')
+      const { field_name } = req.params
+      const result = await contentCollection.updateMany(
+        {},
+        { $unset: { [field_name]: '' } }
+      )
+      res.send(result)
+    })
     
-
-
   } finally {
     // Uncomment this line if you want to keep the connection open
     // await client.close();
