@@ -95,16 +95,17 @@ async function run () {
       res.send(await contentCollection.find({ isPublic: true }).toArray())
     })
 
-    // post content share
+    // share content
     app.post('/conversations', async (req, res) => {
       console.log('Post /conversation api is hit...')
-      const { content, sender, receiver, isAnonymous } = req.body
+      console.log(req.body)
+      const { content, sender, receiver, isSenderAnonymous } = req.body
       const sendTime = new Date().toISOString()
       const transferredContent = {
         content,
         sender,
         receiver,
-        isAnonymous,
+        isAnonymous: isSenderAnonymous,
         sendTime
       }
       const result = await conversationCollection.insertOne(transferredContent)
