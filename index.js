@@ -13,7 +13,7 @@ app.get('/', (_, res) => {
   res.send('Hello from the other side...')
 })
 
-const { MongoClient, ServerApiVersion } = require('mongodb')
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb')
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@clustermuntasir.bwzlexy.mongodb.net/?retryWrites=true&w=majority&appName=clusterMuntasir`
 
 // Create a MongoClient with a MongoClientOptions object
@@ -95,6 +95,89 @@ async function run () {
       res.send(await contentCollection.find({ isPublic: true }).toArray())
     })
 
+    // post content share
+    app.post('/conversations', async (req, res) => {
+      console.log('Post /conversation api is hit...')
+      const { content, sender, receiver, isAnonymous } = req.body
+      const sendTime = new Date().toISOString()
+      const transferredContent = {
+        content,
+        sender,
+        receiver,
+        isAnonymous,
+        sendTime
+      }
+      const result = await conversationCollection.insertOne(transferredContent)
+
+      // update sender outbox if the it is not anonymous
+      if (sender) {
+        const senderOutbox = await conversationCollection
+          .find({ sender: sender })
+          .toArray()
+        const updatedOutbox = senderOutbox.map(
+          content => new ObjectId(content._id)
+        )
+        await userCollection.updateOne(
+          { email: sender },
+          { $set: { outbox: updatedOutbox } }
+        )
+      }
+
+      // update receiver inbox if the user exists
+      const isReceiverExist = await userCollection.findOne({ email: receiver })
+      if (isReceiverExist.email) {
+        const receiverInbox = await conversationCollection
+          .find({ receiver: isReceiverExist.email })
+          .toArray()
+
+        const updatedInbox = receiverInbox.map(
+          content => new ObjectId(content._id)
+        )
+
+        await userCollection.updateOne(
+          { email: receiver },
+          { $set: { inbox: updatedInbox } }
+        )
+      }
+
+      res.send(result)
+    })
+
+    // get conversations of an user
+    app.get('/conversations/:email', async (req, res) => {
+      console.log('Get /conversations/:email api is hit...')
+      const { email } = req.params
+      const userInfo = await userCollection.findOne({ email: email })
+      // fetching inbox
+      const userInboxIds = userInfo.inbox
+      const inbox = await conversationCollection
+        .find({ _id: { $in: userInboxIds } })
+        .toArray()
+
+      //fetching outbox
+      const userOutboxIds = userInfo.outbox
+      const outbox = await conversationCollection
+        .find({ _id: { $in: userOutboxIds } })
+        .toArray()
+
+      res.send({ inbox, outbox })
+    })
+
+    // fetch and set inbox and outbox value
+    app.patch('/testing', async (req, res) => {
+      console.log('patch /testing api is hit...')
+      const fetchedInbox = await conversationCollection
+        .find({ receiver: 'kazimuntasirrahman@gmail.com' })
+        .toArray()
+
+      inbox = fetchedInbox.map(item => new ObjectId(item._id))
+      const result = await userCollection.updateOne(
+        { email: 'kazimuntasirrahman@gmail.com' },
+        { $set: { inbox } }
+      )
+      res.send(result)
+    })
+
     //add a new field
     app.patch('/contents/add-field/:field_name', async (req, res) => {
       console.log('Patch /contents/add-field/:field_name api is hit...')
@@ -114,22 +197,6 @@ async function run () {
         {},
         { $unset: { [field_name]: '' } }
       )
-      res.send(result)
-    })
-
-    // handle content share
-    app.post('/conversations', async (req, res) => {
-      console.log('Post /conversation api is hit...')
-      const { content, sender, receiver, isAnonymous } = req.body
-      const sendTime = new Date().toISOString()
-      const result = await conversationCollection.insertOne({
-        content,
-        sender,
-        receiver,
-        isAnonymous,
-        sendTime
-      })
-      // console.log(result)
       res.send(result)
     })
   } finally {
