@@ -69,6 +69,7 @@ async function run () {
     //post a new content
     app.post('/contents', async (req, res) => {
       console.log('Post /contents api is hit...')
+      console.log(req.body);
       const { title, description, imgURL, uploader, isPublic, isAnonymous } =
         req.body
       const uploadTime = new Date().toISOString()
