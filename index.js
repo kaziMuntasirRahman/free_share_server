@@ -6,7 +6,15 @@ const app = express()
 const port = process.env.PORT || 5000
 
 //middleware
-app.use(cors())
+app.use(
+  cors({
+    origin: [
+      "https://free-share0.web.app",
+      "https://free-share0.firebaseapp.com",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json())
 
 app.get('/', (_, res) => {
